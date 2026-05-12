@@ -57,7 +57,7 @@ class ThinkBlockWidget extends StatefulWidget {
 }
 
 class _ThinkBlockWidgetState extends State<ThinkBlockWidget> {
-  bool _showingThought = true;
+  bool _showingThought = false;
 
   @override
   Widget build(BuildContext context) {
