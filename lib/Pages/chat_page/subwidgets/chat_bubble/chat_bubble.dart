@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_markdown_latex/flutter_markdown_latex.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:reins/Extensions/markdown_stylesheet_extension.dart';
@@ -151,6 +152,12 @@ class _ChatBubbleBody extends StatelessWidget {
         code: GoogleFonts.sourceCodePro(),
       ),
       extensionSet: md.ExtensionSet.gitHubFlavored,
+      builders: {
+        'latex': LatexElementBuilder(),
+        'latexBlock': LatexElementBuilder(),
+      },
+      inlineSyntaxes: [LatexInlineSyntax()],
+      blockSyntaxes: [LatexBlockSyntax()],
       onTapLink: (text, href, title) => launchUrlString(href!),
     );
   }
