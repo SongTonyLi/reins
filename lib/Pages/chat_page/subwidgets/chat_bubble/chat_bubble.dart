@@ -113,11 +113,10 @@ class _ChatBubbleBody extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (parsed.thinkContent.isNotEmpty)
-            ThinkBlockWidget(
-              content: parsed.thinkContent,
-              isComplete: parsed.isThinkingComplete,
-            ),
+          ThinkBlockWidget(
+            content: parsed.thinkContent,
+            isComplete: parsed.isThinkingComplete,
+          ),
           if (parsed.responseContent.isNotEmpty)
             _buildMarkdown(context, parsed.responseContent),
         ],
