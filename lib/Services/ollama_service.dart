@@ -66,6 +66,13 @@ class OllamaService {
     return baseUri.replace(pathSegments: [...segments, ...extraSegments]);
   }
 
+  /// Returns options map for requests. Cloud mode omits advanced options
+  /// that may cause errors with cloud-hosted models.
+  Map<String, dynamic>? _buildOptions(OllamaChatOptions options) {
+    if (_isCloudMode) return null;
+    return options.toMap();
+  }
+
   /// Generates an OllamaMessage.
   ///
   /// This method is responsible for generating an instance of
@@ -89,7 +96,7 @@ class OllamaService {
         "model": chat.model,
         "prompt": prompt,
         "system": chat.systemPrompt,
-        "options": chat.options.toMap(),
+        if (_buildOptions(chat.options) != null) "options": _buildOptions(chat.options),
         "stream": false,
       }),
     );
@@ -99,8 +106,6 @@ class OllamaService {
       return OllamaMessage.fromJson(jsonBody);
     } else if (response.statusCode == 404) {
       throw OllamaException("${chat.model} not found on the server.");
-    } else if (response.statusCode == 500) {
-      throw OllamaException("Internal server error.");
     } else {
       throw OllamaException(HttpErrorFormatter.formatHttpError(response.statusCode, body: response.body));
     }
@@ -118,7 +123,7 @@ class OllamaService {
       "model": chat.model,
       "prompt": prompt,
       "system": chat.systemPrompt,
-      "options": chat.options.toMap(),
+      if (_buildOptions(chat.options) != null) "options": _buildOptions(chat.options),
       "stream": true,
     });
 
@@ -130,8 +135,6 @@ class OllamaService {
       }
     } else if (response.statusCode == 404) {
       throw OllamaException("${chat.model} not found on the server.");
-    } else if (response.statusCode == 500) {
-      throw OllamaException("Internal server error.");
     } else {
       final body = await response.stream.bytesToString();
       throw OllamaException(HttpErrorFormatter.formatHttpError(response.statusCode, body: body));
@@ -160,7 +163,7 @@ class OllamaService {
       body: json.encode({
         "model": chat.model,
         "messages": await _prepareMessagesWithSystemPrompt(messages, chat.systemPrompt),
-        "options": chat.options.toMap(),
+        if (_buildOptions(chat.options) != null) "options": _buildOptions(chat.options),
         "stream": false,
       }),
     );
@@ -170,8 +173,6 @@ class OllamaService {
       return OllamaMessage.fromJson(jsonBody);
     } else if (response.statusCode == 404) {
       throw OllamaException("${chat.model} not found on the server.");
-    } else if (response.statusCode == 500) {
-      throw OllamaException("Internal server error.");
     } else {
       throw OllamaException(HttpErrorFormatter.formatHttpError(response.statusCode, body: response.body));
     }
@@ -188,7 +189,7 @@ class OllamaService {
     request.body = json.encode({
       "model": chat.model,
       "messages": await _prepareMessagesWithSystemPrompt(messages, chat.systemPrompt),
-      "options": chat.options.toMap(),
+      if (_buildOptions(chat.options) != null) "options": _buildOptions(chat.options),
       "stream": true,
     });
 
@@ -200,8 +201,6 @@ class OllamaService {
       }
     } else if (response.statusCode == 404) {
       throw OllamaException("${chat.model} not found on the server.");
-    } else if (response.statusCode == 500) {
-      throw OllamaException("Internal server error.");
     } else {
       final body = await response.stream.bytesToString();
       throw OllamaException(HttpErrorFormatter.formatHttpError(response.statusCode, body: body));
@@ -281,8 +280,6 @@ class OllamaService {
       return ApiTagsResponse.fromJson(jsonBody);
     } else if (response.statusCode == 401 || response.statusCode == 403) {
       throw OllamaException("Invalid API key. Check your key in Settings.");
-    } else if (response.statusCode == 500) {
-      throw OllamaException("Internal server error.");
     } else {
       throw OllamaException(HttpErrorFormatter.formatHttpError(response.statusCode, body: response.body));
     }
@@ -336,8 +333,6 @@ class OllamaService {
 
     if (response.statusCode == 200) {
       return;
-    } else if (response.statusCode == 500) {
-      throw OllamaException("Internal server error.");
     } else {
       throw OllamaException(HttpErrorFormatter.formatHttpError(response.statusCode, body: response.body));
     }
@@ -356,8 +351,6 @@ class OllamaService {
       return;
     } else if (response.statusCode == 404) {
       throw OllamaException("$model not found on the server.");
-    } else if (response.statusCode == 500) {
-      throw OllamaException("Internal server error.");
     } else {
       throw OllamaException(HttpErrorFormatter.formatHttpError(response.statusCode, body: response.body));
     }
