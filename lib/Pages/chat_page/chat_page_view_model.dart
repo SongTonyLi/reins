@@ -55,7 +55,12 @@ class ChatPageViewModel extends ChangeNotifier {
   late final StreamSubscription _settingsSubscription;
 
   bool get isServerConfigured {
-    return Hive.box('settings').get('serverAddress') != null;
+    final box = Hive.box('settings');
+    final isCloudMode = box.get('isCloudMode', defaultValue: false);
+    if (isCloudMode) {
+      return box.get('cloudApiKey') != null;
+    }
+    return box.get('serverAddress') != null;
   }
 
   // ============================================================
@@ -69,10 +74,14 @@ class ChatPageViewModel extends ChangeNotifier {
     // Listen to text field changes to update UI (e.g., send button visibility)
     textFieldController.addListener(_onTextFieldChanged);
 
-    // If the server address changes, reset the selected model
-    _settingsSubscription = Hive.box('settings').watch(key: 'serverAddress').listen((event) {
-      _selectedModel = null;
-      notifyListeners();
+    // If server config changes, reset the selected model
+    _settingsSubscription = Hive.box('settings').watch().listen((event) {
+      if (event.key == 'serverAddress' ||
+          event.key == 'isCloudMode' ||
+          event.key == 'cloudApiKey') {
+        _selectedModel = null;
+        notifyListeners();
+      }
     });
 
     // Listen for app exit to delete unused attached images
