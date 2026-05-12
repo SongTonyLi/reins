@@ -63,11 +63,19 @@ class _ChatPageState extends State<ChatPage> {
                 ),
                 IconButton(
                   icon: Icon(
-                    Icons.travel_explore,
+                    _viewModel.webSearchEnabled
+                        ? Icons.travel_explore
+                        : Icons.travel_explore_outlined,
                     color: _viewModel.webSearchEnabled
-                        ? Theme.of(context).colorScheme.primary
+                        ? Theme.of(context).colorScheme.onPrimary
                         : null,
                   ),
+                  style: _viewModel.webSearchEnabled
+                      ? IconButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                        )
+                      : null,
                   onPressed: () => _viewModel.toggleWebSearch(),
                   tooltip: 'Web Search',
                 ),
