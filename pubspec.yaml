@@ -83,6 +83,9 @@ dependencies:
 
   notification_centre: ^0.0.3
 
+  # WebView for open-webui PWA
+  flutter_inappwebview: ^6.1.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
