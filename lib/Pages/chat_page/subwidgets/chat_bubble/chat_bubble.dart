@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:flutter_markdown_latex/flutter_markdown_latex.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:reins/Extensions/markdown_stylesheet_extension.dart';
 import 'package:reins/Models/ollama_message.dart';
+import 'package:reins/Utils/latex_utils.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import 'chat_bubble_actions.dart';
@@ -144,8 +144,13 @@ class _ChatBubbleBody extends StatelessWidget {
   }
 
   Widget _buildMarkdown(BuildContext context, String data) {
+    // Pre-process LaTeX: convert $...$ → \(...\) and $$...$$ → \[...\]
+    // This avoids conflicts between $ and markdown ** bold markers.
+    // Mirrors open-webui's approach of parsing LaTeX before markdown.
+    final processed = preprocessLatex(data);
+
     return MarkdownBody(
-      data: data,
+      data: processed,
       selectable: true,
       softLineBreak: true,
       styleSheet: context.markdownStyleSheet.copyWith(
@@ -153,11 +158,11 @@ class _ChatBubbleBody extends StatelessWidget {
       ),
       extensionSet: md.ExtensionSet.gitHubFlavored,
       builders: {
-        'latex': LatexElementBuilder(),
-        'latexBlock': LatexElementBuilder(),
+        'latex': InlineLatexBuilder(),
+        'latexBlock': BlockLatexBuilder(),
       },
-      inlineSyntaxes: [LatexInlineSyntax()],
-      blockSyntaxes: [LatexBlockSyntax()],
+      inlineSyntaxes: [SafeLatexInlineSyntax()],
+      blockSyntaxes: [SafeLatexBlockSyntax()],
       onTapLink: (text, href, title) => launchUrlString(href!),
     );
   }
