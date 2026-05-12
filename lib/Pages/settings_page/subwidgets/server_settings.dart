@@ -24,11 +24,18 @@ class _ServerSettingsState extends State<ServerSettings> {
   final _settingsBox = Hive.box('settings');
 
   final _serverAddressController = TextEditingController();
+  final _apiKeyController = TextEditingController();
 
   OllamaRequestState _requestState = OllamaRequestState.uninitialized;
+  OllamaRequestState _cloudRequestState = OllamaRequestState.uninitialized;
   get _isLoading => _requestState == OllamaRequestState.loading;
+  get _isCloudLoading => _cloudRequestState == OllamaRequestState.loading;
 
   String? _serverAddressErrorText;
+  String? _cloudErrorText;
+  bool _obscureApiKey = true;
+
+  bool get _isCloudMode => _settingsBox.get('isCloudMode', defaultValue: false);
 
   @override
   void initState() {
@@ -39,18 +46,34 @@ class _ServerSettingsState extends State<ServerSettings> {
 
   _initialize() {
     final serverAddress = _settingsBox.get('serverAddress');
+    final cloudApiKey = _settingsBox.get('cloudApiKey');
 
     if (serverAddress != null) {
       _serverAddressController.text = serverAddress;
-      _handleConnectButton();
+      if (!_isCloudMode) {
+        _handleConnectButton();
+      }
+    }
+
+    if (cloudApiKey != null) {
+      _apiKeyController.text = cloudApiKey;
+      if (_isCloudMode) {
+        _handleCloudConnectButton();
+      }
     }
   }
 
   @override
   void dispose() {
     _serverAddressController.dispose();
+    _apiKeyController.dispose();
 
     super.dispose();
+  }
+
+  void _setCloudMode(bool value) {
+    _settingsBox.put('isCloudMode', value);
+    setState(() {});
   }
 
   @override
@@ -65,6 +88,37 @@ class _ServerSettingsState extends State<ServerSettings> {
               ),
         ),
         const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(
+                value: false,
+                label: Text('Local'),
+                icon: Icon(Icons.dns_outlined),
+              ),
+              ButtonSegment(
+                value: true,
+                label: Text('Cloud'),
+                icon: Icon(Icons.cloud_outlined),
+              ),
+            ],
+            selected: {_isCloudMode},
+            onSelectionChanged: (selection) {
+              _setCloudMode(selection.first);
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (_isCloudMode) _buildCloudSettings(context) else _buildLocalSettings(context),
+      ],
+    );
+  }
+
+  Widget _buildLocalSettings(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         TextField(
           autofocus: widget.autoFocusServerAddress,
           controller: _serverAddressController,
@@ -115,6 +169,61 @@ class _ServerSettingsState extends State<ServerSettings> {
     );
   }
 
+  Widget _buildCloudSettings(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _apiKeyController,
+          obscureText: _obscureApiKey,
+          onChanged: (_) {
+            setState(() {
+              _cloudErrorText = null;
+              _cloudRequestState = OllamaRequestState.uninitialized;
+            });
+          },
+          decoration: InputDecoration(
+            labelText: 'API Key',
+            hintText: 'Enter your Ollama Cloud API key',
+            border: OutlineInputBorder(),
+            errorText: _cloudErrorText,
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscureApiKey ? Icons.visibility_off : Icons.visibility,
+              ),
+              onPressed: () {
+                setState(() {
+                  _obscureApiKey = !_obscureApiKey;
+                });
+              },
+            ),
+          ),
+          onTapOutside: (PointerDownEvent event) {
+            FocusManager.instance.primaryFocus?.unfocus();
+          },
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Get your API key from ollama.com/settings',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed:
+                _isCloudLoading || _apiKeyController.text.isEmpty ? null : _handleCloudConnectButton,
+            child: _ConnectionStatusIndicator(
+              color: _cloudConnectionStatusColor,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Color get _connectionStatusColor {
     switch (_requestState) {
       case OllamaRequestState.error:
@@ -125,6 +234,60 @@ class _ServerSettingsState extends State<ServerSettings> {
         return Colors.green;
       case OllamaRequestState.uninitialized:
         return Colors.grey;
+    }
+  }
+
+  Color get _cloudConnectionStatusColor {
+    switch (_cloudRequestState) {
+      case OllamaRequestState.error:
+        return Colors.red;
+      case OllamaRequestState.loading:
+        return Colors.orange;
+      case OllamaRequestState.success:
+        return Colors.green;
+      case OllamaRequestState.uninitialized:
+        return Colors.grey;
+    }
+  }
+
+  _handleCloudConnectButton() async {
+    setState(() {
+      _cloudErrorText = null;
+      _cloudRequestState = OllamaRequestState.loading;
+    });
+
+    try {
+      final apiKey = _apiKeyController.text.trim();
+      if (apiKey.isEmpty) {
+        throw OllamaException('Please enter an API key.');
+      }
+
+      final url = Uri.parse('https://ollama.com/api/tags');
+      final response = await http.get(url, headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $apiKey',
+      }).timeout(const Duration(seconds: 5));
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        _cloudRequestState = OllamaRequestState.success;
+        _settingsBox.put('cloudApiKey', apiKey);
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        _cloudErrorText = 'Invalid API key.';
+        _cloudRequestState = OllamaRequestState.error;
+      } else {
+        _cloudErrorText = 'Connection failed (${response.statusCode}).';
+        _cloudRequestState = OllamaRequestState.error;
+      }
+    } on OllamaException catch (error) {
+      _cloudErrorText = error.message;
+      _cloudRequestState = OllamaRequestState.error;
+    } catch (_) {
+      _cloudErrorText = 'Could not connect to Ollama Cloud.';
+      _cloudRequestState = OllamaRequestState.error;
+    } finally {
+      setState(() {});
     }
   }
 

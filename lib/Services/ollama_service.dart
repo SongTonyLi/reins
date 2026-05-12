@@ -11,6 +11,9 @@ import 'package:reins/Models/ollama_model.dart';
 import 'package:reins/Models/api/create_request.dart';
 
 class OllamaService {
+  static const String defaultLocalUrl = "http://localhost:11434";
+  static const String cloudBaseUrl = "https://ollama.com";
+
   /// The base URL for the Ollama service API.
   ///
   /// This URL is used as the root endpoint for all network requests
@@ -20,13 +23,34 @@ class OllamaService {
   /// The default value is "http://localhost:11434".
   String _baseUrl;
   String get baseUrl => _baseUrl;
-  set baseUrl(String? value) => _baseUrl = value ?? "http://localhost:11434";
+  set baseUrl(String? value) => _baseUrl = value ?? defaultLocalUrl;
+
+  /// Whether the service is in cloud mode.
+  bool _isCloudMode = false;
+  bool get isCloudMode => _isCloudMode;
+  set isCloudMode(bool value) {
+    _isCloudMode = value;
+    if (value) {
+      _baseUrl = cloudBaseUrl;
+    }
+  }
+
+  /// The API key for Ollama Cloud authentication.
+  String? _apiKey;
+  String? get apiKey => _apiKey;
+  set apiKey(String? value) => _apiKey = value;
 
   /// The headers to include in all network requests.
-  final headers = {'Content-Type': 'application/json'};
+  Map<String, String> get headers {
+    final h = {'Content-Type': 'application/json'};
+    if (_isCloudMode && _apiKey != null && _apiKey!.isNotEmpty) {
+      h['Authorization'] = 'Bearer $_apiKey';
+    }
+    return h;
+  }
 
   /// Creates a new instance of the Ollama service.
-  OllamaService({String? baseUrl}) : _baseUrl = baseUrl ?? "http://localhost:11434";
+  OllamaService({String? baseUrl}) : _baseUrl = baseUrl ?? defaultLocalUrl;
 
   /// Constructs a URL by resolving the provided path against the base URL.
   Uri constructUrl(String path) {
@@ -253,6 +277,8 @@ class OllamaService {
     if (response.statusCode == 200) {
       final jsonBody = json.decode(response.body);
       return ApiTagsResponse.fromJson(jsonBody);
+    } else if (response.statusCode == 401 || response.statusCode == 403) {
+      throw OllamaException("Invalid API key. Check your key in Settings.");
     } else if (response.statusCode == 500) {
       throw OllamaException("Internal server error.");
     } else {

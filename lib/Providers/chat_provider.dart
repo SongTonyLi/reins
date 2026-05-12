@@ -389,14 +389,29 @@ class ChatProvider extends ChangeNotifier {
 
   void _updateOllamaServiceAddress() {
     final settingsBox = Hive.box('settings');
-    _ollamaService.baseUrl = settingsBox.get('serverAddress');
 
-    settingsBox.listenable(keys: ["serverAddress"]).addListener(() {
-      _ollamaService.baseUrl = settingsBox.get('serverAddress');
+    _applyServerSettings(settingsBox);
+
+    settingsBox
+        .listenable(keys: ["serverAddress", "isCloudMode", "cloudApiKey"])
+        .addListener(() {
+      _applyServerSettings(settingsBox);
 
       // This will update empty chat state to dismiss "Tap to configure server address" message
       notifyListeners();
     });
+  }
+
+  void _applyServerSettings(Box settingsBox) {
+    final isCloudMode = settingsBox.get('isCloudMode', defaultValue: false);
+    _ollamaService.isCloudMode = isCloudMode;
+
+    if (isCloudMode) {
+      _ollamaService.apiKey = settingsBox.get('cloudApiKey');
+    } else {
+      _ollamaService.apiKey = null;
+      _ollamaService.baseUrl = settingsBox.get('serverAddress');
+    }
   }
 
   Future<void> saveAsNewModel(String modelName) async {

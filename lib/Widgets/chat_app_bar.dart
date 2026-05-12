@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:reins/Constants/constants.dart';
 import 'package:reins/Widgets/chat_configure_bottom_sheet.dart';
 import 'package:reins/Widgets/model_selection_bottom_sheet.dart';
@@ -26,11 +27,36 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
               customBorder: StadiumBorder(),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Text(
-                  chatProvider.currentChat!.model,
-                  style: GoogleFonts.kodeMono(
-                    textStyle: Theme.of(context).textTheme.labelSmall,
-                  ),
+                child: ValueListenableBuilder(
+                  valueListenable:
+                      Hive.box('settings').listenable(keys: ['isCloudMode']),
+                  builder: (context, box, _) {
+                    final isCloud =
+                        box.get('isCloudMode', defaultValue: false);
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isCloud
+                              ? Icons.cloud_outlined
+                              : Icons.dns_outlined,
+                          size: 14,
+                          color: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.color,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          chatProvider.currentChat!.model,
+                          style: GoogleFonts.kodeMono(
+                            textStyle:
+                                Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),

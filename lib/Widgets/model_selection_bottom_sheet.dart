@@ -34,8 +34,15 @@ class _ModelSelectionBottomSheetState extends State<ModelSelectionBottomSheet> {
   var _state = OllamaRequestState.uninitialized;
   late CancelableOperation _fetchOperation;
 
-  /// Cache key derived from server address
-  String get _cacheKey => Hive.box('settings').get('serverAddress') ?? 'default';
+  /// Cache key derived from server address and cloud mode
+  String get _cacheKey {
+    final box = Hive.box('settings');
+    final isCloud = box.get('isCloudMode', defaultValue: false);
+    if (isCloud) return 'cloud';
+    return box.get('serverAddress') ?? 'default';
+  }
+
+  bool get _isCloudMode => Hive.box('settings').get('isCloudMode', defaultValue: false);
 
   @override
   void initState() {
@@ -100,6 +107,15 @@ class _ModelSelectionBottomSheetState extends State<ModelSelectionBottomSheet> {
           Row(
             children: [
               Expanded(child: OllamaBottomSheetHeader(title: widget.title)),
+              if (_isCloudMode)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                  child: Icon(
+                    Icons.cloud_outlined,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
               if (_models.isNotEmpty && _state == OllamaRequestState.loading)
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16.0),
