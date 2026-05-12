@@ -2,10 +2,11 @@
 
 ## Problem
 
-The Reins Flutter app connects directly to Ollama and lacks three features:
+The Reins Flutter app connects directly to Ollama and lacks four features:
 1. **Thinking tokens not streamed** — `OllamaMessage.fromJson()` only reads `message.content`, ignoring `message.thinking`
 2. **No internet search** — Not implemented at all
 3. **Attachments limited to images** — Only `ImagePicker` for photos, no documents
+4. **No LaTeX rendering** — Uses `flutter_markdown` with GitHub Flavored Markdown only; math expressions (`$...$`, `$$...$$`) render as raw text
 
 ## Solution
 
@@ -78,6 +79,24 @@ Both backend modes coexist. User selects in Settings. Direct Ollama mode is unch
 ### Direct Ollama mode
 - File picker hidden for non-image files (not supported without open-webui)
 - Image attachment works as before (base64 in message)
+
+## Feature 4: Full Markdown and LaTeX Support
+
+### Current state
+- `flutter_markdown` with `ExtensionSet.gitHubFlavored` — handles headings, bold, italic, links, code blocks, tables, lists
+- No LaTeX/math rendering — inline `$E=mc^2$` and display `$$\int_0^1 f(x)dx$$` show as raw text
+- Open-webui renders full LaTeX via KaTeX in the browser
+
+### Solution
+- Add `flutter_markdown_latex` package — extends `flutter_markdown` with LaTeX support using `flutter_math_fork` under the hood
+- Minimal change: add the LaTeX builder to the existing `MarkdownBody` widget's `builders` parameter
+- Handles both inline `$...$` and display `$$...$$` math expressions
+- Works with both backend modes (Ollama direct and open-webui) since it's purely a rendering concern
+
+### Changes
+- `pubspec.yaml` — add `flutter_markdown_latex` dependency
+- `chat_bubble.dart` — add `LatexElementBuilder` to `MarkdownBody.builders`
+- `chat_bubble_think_block.dart` — use same Markdown+LaTeX renderer for thinking content (instead of plain `SelectableText`)
 
 ## New Files
 
@@ -153,6 +172,7 @@ Data model for uploaded file reference:
 
 ### `pubspec.yaml`
 - Add `file_picker` dependency
+- Add `flutter_markdown_latex` dependency (brings `flutter_math_fork` transitively)
 
 ## Settings & Configuration
 
@@ -230,4 +250,5 @@ Stream<ChatCompletionChunk> _processSSEStream(Stream<String> stream) async* {
 - Files: upload PDF and TXT, verify content is used in response
 - Backend switching: verify Ollama direct mode still works unchanged
 - Persistence: verify thinking content and sources survive app restart (DB storage)
-- iOS simulator: test all three features end-to-end
+- LaTeX: verify inline `$...$` and display `$$...$$` render correctly in chat bubbles and thinking blocks
+- iOS simulator: test all four features end-to-end
