@@ -195,7 +195,11 @@ class ChatProvider extends ChangeNotifier {
     await _databaseService.deleteChat(chat.id);
   }
 
-  Future<void> sendPrompt(String text, {List<File>? images, String? searchContext}) async {
+  Future<void> sendPrompt(String text, {
+    List<File>? images,
+    String? searchContext,
+    Map<int, String>? sourceUrls,
+  }) async {
     // Save the chat where the prompt was sent
     final associatedChat = currentChat!;
 
@@ -213,10 +217,10 @@ class ChatProvider extends ChangeNotifier {
     await _databaseService.addMessage(prompt, chat: associatedChat);
 
     // Initialize the chat stream with the messages in the chat
-    await _initializeChatStream(associatedChat, searchContext: searchContext);
+    await _initializeChatStream(associatedChat, searchContext: searchContext, sourceUrls: sourceUrls);
   }
 
-  Future<void> _initializeChatStream(OllamaChat associatedChat, {String? searchContext}) async {
+  Future<void> _initializeChatStream(OllamaChat associatedChat, {String? searchContext, Map<int, String>? sourceUrls}) async {
     // Send a notification to inform generation begin
     NotificationCenter().postNotification(NotificationNames.generationBegin);
 
@@ -243,6 +247,10 @@ class ChatProvider extends ChangeNotifier {
 
     try {
       ollamaMessage = await _streamOllamaMessage(associatedChat, searchContext: searchContext);
+      // Replace [N] citations with clickable markdown links
+      if (ollamaMessage != null && sourceUrls != null && sourceUrls.isNotEmpty) {
+        ollamaMessage.content = _replaceCitationsWithLinks(ollamaMessage.content, sourceUrls);
+      }
     } on OllamaException catch (error) {
       _chatErrors[associatedChat.id] = error;
     } on SocketException catch (_) {
@@ -383,6 +391,21 @@ class ChatProvider extends ChangeNotifier {
     if (_messages.remove(message)) {
       notifyListeners();
     }
+  }
+
+  /// Replaces [N] citations in content with clickable markdown links.
+  String _replaceCitationsWithLinks(String content, Map<int, String> sourceUrls) {
+    return content.replaceAllMapped(
+      RegExp(r'\[(\d+)\]'),
+      (match) {
+        final id = int.tryParse(match.group(1)!);
+        if (id != null && sourceUrls.containsKey(id)) {
+          final url = sourceUrls[id]!;
+          return '[[$id]($url)]';
+        }
+        return match.group(0)!;
+      },
+    );
   }
 
   void cancelCurrentStreaming() {

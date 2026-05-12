@@ -292,6 +292,7 @@ class ChatPageViewModel extends ChangeNotifier {
 
       // Perform web search if enabled
       String? searchContext;
+      Map<int, String>? sourceUrls;
       if (_webSearchEnabled) {
         try {
           debugPrint('[WebSearch] Searching for: $prompt');
@@ -300,6 +301,10 @@ class ChatPageViewModel extends ChangeNotifier {
           debugPrint('[WebSearch] Got ${searchResults.length} results');
           if (searchResults.isNotEmpty) {
             searchContext = WebSearchService.formatResultsAsContext(searchResults, prompt);
+            sourceUrls = {
+              for (var i = 0; i < searchResults.length; i++)
+                i + 1: searchResults[i].url,
+            };
             debugPrint('[WebSearch] Context length: ${searchContext.length}');
           }
         } catch (e) {
@@ -311,7 +316,7 @@ class ChatPageViewModel extends ChangeNotifier {
       notifyListeners();
 
       // Send the prompt
-      await _chatProvider.sendPrompt(prompt, images: images, searchContext: searchContext);
+      await _chatProvider.sendPrompt(prompt, images: images, searchContext: searchContext, sourceUrls: sourceUrls);
 
       // Generate title for the new chat
       await _chatProvider.generateTitleForCurrentChat();
@@ -322,6 +327,7 @@ class ChatPageViewModel extends ChangeNotifier {
 
       // Perform web search if enabled
       String? searchContext;
+      Map<int, String>? sourceUrls;
       if (_webSearchEnabled) {
         try {
           debugPrint('[WebSearch] Searching for: $prompt');
@@ -330,6 +336,10 @@ class ChatPageViewModel extends ChangeNotifier {
           debugPrint('[WebSearch] Got ${searchResults.length} results');
           if (searchResults.isNotEmpty) {
             searchContext = WebSearchService.formatResultsAsContext(searchResults, prompt);
+            sourceUrls = {
+              for (var i = 0; i < searchResults.length; i++)
+                i + 1: searchResults[i].url,
+            };
             debugPrint('[WebSearch] Context length: ${searchContext.length}');
           }
         } catch (e) {
@@ -341,7 +351,7 @@ class ChatPageViewModel extends ChangeNotifier {
       notifyListeners();
 
       // Send the prompt
-      await _chatProvider.sendPrompt(prompt, images: images, searchContext: searchContext);
+      await _chatProvider.sendPrompt(prompt, images: images, searchContext: searchContext, sourceUrls: sourceUrls);
     }
 
     return true;
