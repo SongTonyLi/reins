@@ -34,6 +34,16 @@ class ChatPageViewModel extends ChangeNotifier {
   // Page State
   // ============================================================
 
+  /// Whether web search is enabled for the next message
+  bool _webSearchEnabled = false;
+  bool get webSearchEnabled => _webSearchEnabled;
+
+  /// Toggles web search on/off
+  void toggleWebSearch() {
+    _webSearchEnabled = !_webSearchEnabled;
+    notifyListeners();
+  }
+
   /// The selected model for new chats
   OllamaModel? _selectedModel;
   OllamaModel? get selectedModel => _selectedModel;
@@ -280,11 +290,23 @@ class ChatPageViewModel extends ChangeNotifier {
       final images = _takeImages();
       _presets = ChatPresets.randomPresets;
 
+      // Perform web search if enabled
+      String? searchContext;
+      if (_webSearchEnabled) {
+        try {
+          final searchService = WebSearchService();
+          final searchResults = await searchService.search(prompt);
+          searchContext = WebSearchService.formatResultsAsContext(searchResults);
+        } catch (_) {
+          // Search failure shouldn't block sending the message
+        }
+      }
+
       // Notify listeners
       notifyListeners();
 
       // Send the prompt
-      await _chatProvider.sendPrompt(prompt, images: images);
+      await _chatProvider.sendPrompt(prompt, images: images, searchContext: searchContext);
 
       // Generate title for the new chat
       await _chatProvider.generateTitleForCurrentChat();
@@ -293,11 +315,23 @@ class ChatPageViewModel extends ChangeNotifier {
       final prompt = _takeTextFieldValue();
       final images = _takeImages();
 
+      // Perform web search if enabled
+      String? searchContext;
+      if (_webSearchEnabled) {
+        try {
+          final searchService = WebSearchService();
+          final searchResults = await searchService.search(prompt);
+          searchContext = WebSearchService.formatResultsAsContext(searchResults);
+        } catch (_) {
+          // Search failure shouldn't block sending the message
+        }
+      }
+
       // Notify listeners (text field is cleared)
       notifyListeners();
 
       // Send the prompt
-      await _chatProvider.sendPrompt(prompt, images: images);
+      await _chatProvider.sendPrompt(prompt, images: images, searchContext: searchContext);
     }
 
     return true;

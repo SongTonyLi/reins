@@ -195,7 +195,7 @@ class ChatProvider extends ChangeNotifier {
     await _databaseService.deleteChat(chat.id);
   }
 
-  Future<void> sendPrompt(String text, {List<File>? images}) async {
+  Future<void> sendPrompt(String text, {List<File>? images, String? searchContext}) async {
     // Save the chat where the prompt was sent
     final associatedChat = currentChat!;
 
@@ -213,10 +213,10 @@ class ChatProvider extends ChangeNotifier {
     await _databaseService.addMessage(prompt, chat: associatedChat);
 
     // Initialize the chat stream with the messages in the chat
-    await _initializeChatStream(associatedChat);
+    await _initializeChatStream(associatedChat, searchContext: searchContext);
   }
 
-  Future<void> _initializeChatStream(OllamaChat associatedChat) async {
+  Future<void> _initializeChatStream(OllamaChat associatedChat, {String? searchContext}) async {
     // Send a notification to inform generation begin
     NotificationCenter().postNotification(NotificationNames.generationBegin);
 
@@ -242,7 +242,7 @@ class ChatProvider extends ChangeNotifier {
     OllamaMessage? ollamaMessage;
 
     try {
-      ollamaMessage = await _streamOllamaMessage(associatedChat);
+      ollamaMessage = await _streamOllamaMessage(associatedChat, searchContext: searchContext);
     } on OllamaException catch (error) {
       _chatErrors[associatedChat.id] = error;
     } on SocketException catch (_) {
@@ -263,10 +263,19 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  Future<OllamaMessage?> _streamOllamaMessage(OllamaChat associatedChat) async {
+  Future<OllamaMessage?> _streamOllamaMessage(OllamaChat associatedChat, {String? searchContext}) async {
     if (_messages.isEmpty) return null;
 
-    final stream = _ollamaService.chatStream(_messages, chat: associatedChat);
+    // If search context is provided, inject it as a system message before the conversation
+    List<OllamaMessage> messagesToSend = _messages;
+    if (searchContext != null && searchContext.isNotEmpty) {
+      messagesToSend = [
+        OllamaMessage(searchContext, role: OllamaMessageRole.system),
+        ..._messages,
+      ];
+    }
+
+    final stream = _ollamaService.chatStream(messagesToSend, chat: associatedChat);
 
     OllamaMessage? streamingMessage;
     OllamaMessage? receivedMessage;

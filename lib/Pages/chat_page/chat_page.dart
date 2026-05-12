@@ -54,9 +54,24 @@ class _ChatPageState extends State<ChatPage> {
             key: ValueKey(_viewModel.currentChat?.id),
             controller: _viewModel.textFieldController,
             onEditingComplete: _sendMessage,
-            prefixIcon: IconButton(
-              icon: Icon(Icons.add),
-              onPressed: _handleAttachmentButton,
+            prefixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: _handleAttachmentButton,
+                ),
+                IconButton(
+                  icon: Icon(
+                    Icons.travel_explore,
+                    color: _viewModel.webSearchEnabled
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                  onPressed: () => _viewModel.toggleWebSearch(),
+                  tooltip: 'Web Search',
+                ),
+              ],
             ),
             suffixIcon: _buildTextFieldSuffixIcon(),
           ),
