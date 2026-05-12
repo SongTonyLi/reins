@@ -139,21 +139,36 @@ class SafeLatexBlockSyntax extends md.BlockSyntax {
   }
 }
 
+/// Safely renders a LaTeX string, falling back to plain text on any error.
+Widget _renderLatex(String latex, TextStyle? style, {bool displayMode = false}) {
+  // Skip rendering if content is too long (likely a false positive)
+  if (latex.length > 500) {
+    final delim = displayMode ? '\$\$' : '\$';
+    return Text('$delim$latex$delim', style: style);
+  }
+
+  try {
+    return Math.tex(
+      latex,
+      textStyle: displayMode
+          ? style?.copyWith(fontSize: (style.fontSize ?? 16) * 1.15)
+          : style,
+      onErrorFallback: (_) {
+        final delim = displayMode ? '\$\$' : '\$';
+        return Text('$delim$latex$delim', style: style);
+      },
+    );
+  } catch (_) {
+    final delim = displayMode ? '\$\$' : '\$';
+    return Text('$delim$latex$delim', style: style);
+  }
+}
+
 /// Builds inline LaTeX widgets.
 class InlineLatexBuilder extends MarkdownElementBuilder {
   @override
   Widget visitElementAfter(md.Element element, TextStyle? preferredStyle) {
-    return Math.tex(
-      element.textContent,
-      textStyle: preferredStyle,
-      onErrorFallback: (err) => Text(
-        '\$${element.textContent}\$',
-        style: preferredStyle?.copyWith(
-          fontStyle: FontStyle.italic,
-          color: Colors.orange,
-        ),
-      ),
-    );
+    return _renderLatex(element.textContent, preferredStyle);
   }
 }
 
@@ -166,18 +181,10 @@ class BlockLatexBuilder extends MarkdownElementBuilder {
       child: Center(
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: Math.tex(
+          child: _renderLatex(
             element.textContent,
-            textStyle: preferredStyle?.copyWith(
-              fontSize: (preferredStyle.fontSize ?? 16) * 1.2,
-            ),
-            onErrorFallback: (err) => Text(
-              '\$\$${element.textContent}\$\$',
-              style: preferredStyle?.copyWith(
-                fontStyle: FontStyle.italic,
-                color: Colors.orange,
-              ),
-            ),
+            preferredStyle,
+            displayMode: true,
           ),
         ),
       ),
