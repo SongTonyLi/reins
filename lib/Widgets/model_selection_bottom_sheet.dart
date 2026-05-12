@@ -30,6 +30,8 @@ class _ModelSelectionBottomSheetState extends State<ModelSelectionBottomSheet> {
 
   OllamaModel? _selectedModel;
   List<OllamaModel> _models = [];
+  String _searchQuery = '';
+  final _searchController = TextEditingController();
 
   var _state = OllamaRequestState.uninitialized;
   late CancelableOperation _fetchOperation;
@@ -57,9 +59,16 @@ class _ModelSelectionBottomSheetState extends State<ModelSelectionBottomSheet> {
     _fetchOperation = CancelableOperation.fromFuture(_fetchModels());
   }
 
+  List<OllamaModel> get _filteredModels {
+    if (_searchQuery.isEmpty) return _models;
+    final query = _searchQuery.toLowerCase();
+    return _models.where((m) => m.name.toLowerCase().contains(query)).toList();
+  }
+
   @override
   void dispose() {
     _fetchOperation.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -124,6 +133,32 @@ class _ModelSelectionBottomSheetState extends State<ModelSelectionBottomSheet> {
             ],
           ),
           const Divider(),
+          if (_models.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search models...',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8.0),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
+                ),
+                onChanged: (value) => setState(() => _searchQuery = value),
+              ),
+            ),
           Expanded(child: _buildBody(context)),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -160,6 +195,11 @@ class _ModelSelectionBottomSheetState extends State<ModelSelectionBottomSheet> {
         return const Center(child: Text('No models found.'));
       }
 
+      final filtered = _filteredModels;
+      if (filtered.isEmpty) {
+        return Center(child: Text('No models match "$_searchQuery".'));
+      }
+
       return RefreshIndicator(
         onRefresh: () async {
           _fetchOperation = CancelableOperation.fromFuture(_fetchModels());
@@ -168,9 +208,12 @@ class _ModelSelectionBottomSheetState extends State<ModelSelectionBottomSheet> {
           groupValue: _selectedModel,
           onChanged: (model) => setState(() => _selectedModel = model),
           child: ListView.builder(
-            itemCount: _models.length,
+            itemCount: filtered.length,
             itemBuilder: (context, index) {
-              return _ModelListTile(model: _models[index]);
+              return _ModelListTile(
+                model: filtered[index],
+                isCloudMode: _isCloudMode,
+              );
             },
           ),
         ),
@@ -183,17 +226,19 @@ class _ModelSelectionBottomSheetState extends State<ModelSelectionBottomSheet> {
 
 class _ModelListTile extends StatelessWidget {
   final OllamaModel model;
+  final bool isCloudMode;
 
-  const _ModelListTile({required this.model});
+  const _ModelListTile({required this.model, this.isCloudMode = false});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final capabilities = model.capabilities;
+    final displayName = isCloudMode ? '${model.name}:cloud' : model.name;
 
     return RadioListTile<OllamaModel>(
       value: model,
-      title: Text(model.name),
+      title: Text(displayName),
       subtitle: model.parameterSize.isNotEmpty
           ? Text(
               model.parameterSize,
