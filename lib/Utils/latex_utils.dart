@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
+import 'package:flutter_math_fork/tex.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:markdown/markdown.dart' as md;
 
@@ -140,25 +141,46 @@ class SafeLatexBlockSyntax extends md.BlockSyntax {
 }
 
 /// Safely renders a LaTeX string, falling back to plain text on any error.
-Widget _renderLatex(String latex, TextStyle? style, {bool displayMode = false}) {
-  // Skip rendering if content is too long (likely a false positive)
-  if (latex.length > 500) {
-    final delim = displayMode ? '\$\$' : '\$';
-    return Text('$delim$latex$delim', style: style);
+/// Uses pre-validation to avoid flutter_math_fork build-phase crashes
+/// that produce Flutter's red ErrorWidget.
+class SafeLatexWidget extends StatelessWidget {
+  final String latex;
+  final TextStyle? style;
+  final bool displayMode;
+
+  const SafeLatexWidget({
+    super.key,
+    required this.latex,
+    this.style,
+    this.displayMode = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Skip rendering if content is too long (likely a false positive)
+    if (latex.trim().isEmpty || latex.length > 500) {
+      return _fallback();
+    }
+
+    // Pre-validate by trying to parse. If parsing throws, show fallback
+    // instead of letting flutter_math crash and show a red ErrorWidget.
+    try {
+      final greenRoot = TexParser(latex, const TexParserSettings()).parse();
+      final parsed = SyntaxTree(greenRoot: greenRoot);
+      return parsed.buildWidget(
+        MathOptions(
+          style: displayMode ? MathStyle.display : MathStyle.text,
+          fontSize: displayMode
+              ? (style?.fontSize ?? 16) * 1.15
+              : style?.fontSize ?? 16,
+        ),
+      );
+    } catch (_) {
+      return _fallback();
+    }
   }
 
-  try {
-    return Math.tex(
-      latex,
-      textStyle: displayMode
-          ? style?.copyWith(fontSize: (style.fontSize ?? 16) * 1.15)
-          : style,
-      onErrorFallback: (_) {
-        final delim = displayMode ? '\$\$' : '\$';
-        return Text('$delim$latex$delim', style: style);
-      },
-    );
-  } catch (_) {
+  Widget _fallback() {
     final delim = displayMode ? '\$\$' : '\$';
     return Text('$delim$latex$delim', style: style);
   }
@@ -168,7 +190,7 @@ Widget _renderLatex(String latex, TextStyle? style, {bool displayMode = false}) 
 class InlineLatexBuilder extends MarkdownElementBuilder {
   @override
   Widget visitElementAfter(md.Element element, TextStyle? preferredStyle) {
-    return _renderLatex(element.textContent, preferredStyle);
+    return SafeLatexWidget(latex: element.textContent, style: preferredStyle);
   }
 }
 
@@ -181,9 +203,9 @@ class BlockLatexBuilder extends MarkdownElementBuilder {
       child: Center(
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: _renderLatex(
-            element.textContent,
-            preferredStyle,
+          child: SafeLatexWidget(
+            latex: element.textContent,
+            style: preferredStyle,
             displayMode: true,
           ),
         ),
